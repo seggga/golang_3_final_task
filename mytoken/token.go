@@ -89,7 +89,7 @@ const (
 	RPAREN // )
 	//RBRACK    // ]
 	//RBRACE    // }
-	//SEMICOLON // ;
+	SEMICOLON // ;
 	//COLON     // :
 	operator_end
 
@@ -197,7 +197,7 @@ var tokens = [...]string{
 	RPAREN: ")",
 	// RBRACK:    "]",
 	// RBRACE:    "}",
-	// SEMICOLON: ";",
+	SEMICOLON: ";",
 	// COLON:     ":",
 
 	// BREAK:    "break",

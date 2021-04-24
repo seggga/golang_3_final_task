@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"go/scanner"
-	"go/token"
 	"io"
 	"log"
 	"os"
 
+	"github.com/seggga/golang_3_final_task/myscanner"
+	"github.com/seggga/golang_3_final_task/mytoken"
 	"github.com/seggga/golang_3_final_task/querier"
 )
 
@@ -23,10 +23,10 @@ func main() {
 	}
 
 	// scanner initialisation
-	var s scanner.Scanner
-	fset := token.NewFileSet()
+	var s myscanner.Scanner
+	fset := mytoken.NewFileSet()
 	file := fset.AddFile("", fset.Base(), len(src))
-	s.Init(file, src, nil, scanner.ScanComments)
+	s.Init(file, src, nil, myscanner.ScanComments)
 
 	var lm querier.LexMachine
 	lm.Query = string(src)
@@ -34,7 +34,7 @@ func main() {
 	// run the scanner
 	for {
 		pos, tok, lit := s.Scan()
-		if tok == token.EOF {
+		if tok == mytoken.EOF {
 			break
 		}
 		querier.AnalyseToken(&lm, lit, tok)

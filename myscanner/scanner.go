@@ -11,11 +11,14 @@ package myscanner
 import (
 	"bytes"
 	"fmt"
-	"go/token"
+
+	//"go/token"
 	"path/filepath"
 	"strconv"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/seggga/golang_3_final_task/mytoken"
 )
 
 // An ErrorHandler may be provided to Scanner.Init. If a syntax error is
@@ -23,7 +26,7 @@ import (
 // position and an error message. The position points to the beginning of
 // the offending token.
 //
-type ErrorHandler func(pos token.Position, msg string)
+type ErrorHandler func(pos mytoken.Position, msg string)
 
 // A Scanner holds the scanner's internal state while processing
 // a given text. It can be allocated as part of another data
@@ -31,11 +34,11 @@ type ErrorHandler func(pos token.Position, msg string)
 //
 type Scanner struct {
 	// immutable state
-	file *token.File  // source file handle
-	dir  string       // directory portion of file.Name()
-	src  []byte       // source
-	err  ErrorHandler // error reporting; or nil
-	mode Mode         // scanning mode
+	file *mytoken.File // source file handle
+	dir  string        // directory portion of file.Name()
+	src  []byte        // source
+	err  ErrorHandler  // error reporting; or nil
+	mode Mode          // scanning mode
 
 	// scanning state
 	ch         rune // current character
@@ -119,7 +122,7 @@ const (
 // Note that Init may call err if there is an error in the first character
 // of the file.
 //
-func (s *Scanner) Init(file *token.File, src []byte, err ErrorHandler, mode Mode) {
+func (s *Scanner) Init(file *mytoken.File, src []byte, err ErrorHandler, mode Mode) {
 	// Explicitly initialize all fields since a scanner may be reused.
 	if file.Size() != len(src) {
 		panic(fmt.Sprintf("file size (%d) does not match src len (%d)", file.Size(), len(src)))
@@ -401,9 +404,9 @@ func (s *Scanner) digits(base int, invalid *int) (digsep int) {
 	return
 }
 
-func (s *Scanner) scanNumber() (token.Token, string) {
+func (s *Scanner) scanNumber() (mytoken.Token, string) {
 	offs := s.offset
-	tok := token.ILLEGAL
+	tok := mytoken.ILLEGAL
 
 	base := 10        // number base
 	prefix := rune(0) // one of 0 (decimal), '0' (0-octal), 'x', 'o', or 'b'
@@ -412,7 +415,7 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 
 	// integer part
 	if s.ch != '.' {
-		tok = token.INT
+		tok = mytoken.INT
 		if s.ch == '0' {
 			s.next()
 			switch lower(s.ch) {
@@ -435,7 +438,7 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 
 	// fractional part
 	if s.ch == '.' {
-		tok = token.FLOAT
+		tok = mytoken.FLOAT
 		if prefix == 'o' || prefix == 'b' {
 			s.error(s.offset, "invalid radix point in "+litname(prefix))
 		}
@@ -456,7 +459,7 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 			s.errorf(s.offset, "%q exponent requires hexadecimal mantissa", s.ch)
 		}
 		s.next()
-		tok = token.FLOAT
+		tok = mytoken.FLOAT
 		if s.ch == '+' || s.ch == '-' {
 			s.next()
 		}
@@ -465,18 +468,12 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 		if ds&1 == 0 {
 			s.error(s.offset, "exponent has no digits")
 		}
-	} else if prefix == 'x' && tok == token.FLOAT {
+	} else if prefix == 'x' && tok == mytoken.FLOAT {
 		s.error(s.offset, "hexadecimal mantissa requires a 'p' exponent")
 	}
 
-	// suffix 'i'
-	if s.ch == 'i' {
-		tok = token.IMAG
-		s.next()
-	}
-
 	lit := string(s.src[offs:s.offset])
-	if tok == token.INT && invalid >= 0 {
+	if tok == mytoken.INT && invalid >= 0 {
 		s.errorf(invalid, "invalid digit %q in %s", lit[invalid-offs], litname(prefix))
 	}
 	if digsep&2 != 0 {
@@ -712,7 +709,7 @@ func (s *Scanner) skipWhitespace() {
 // respectively. Otherwise, the result is tok0 if there was no other
 // matching character, or tok2 if the matching character was ch2.
 
-func (s *Scanner) switch2(tok0, tok1 token.Token) token.Token {
+func (s *Scanner) switch2(tok0, tok1 mytoken.Token) mytoken.Token {
 	if s.ch == '=' {
 		s.next()
 		return tok1
@@ -720,7 +717,7 @@ func (s *Scanner) switch2(tok0, tok1 token.Token) token.Token {
 	return tok0
 }
 
-func (s *Scanner) switch3(tok0, tok1 token.Token, ch2 rune, tok2 token.Token) token.Token {
+func (s *Scanner) switch3(tok0, tok1 mytoken.Token, ch2 rune, tok2 mytoken.Token) mytoken.Token {
 	if s.ch == '=' {
 		s.next()
 		return tok1
@@ -732,7 +729,7 @@ func (s *Scanner) switch3(tok0, tok1 token.Token, ch2 rune, tok2 token.Token) to
 	return tok0
 }
 
-func (s *Scanner) switch4(tok0, tok1 token.Token, ch2 rune, tok2, tok3 token.Token) token.Token {
+func (s *Scanner) switch4(tok0, tok1 mytoken.Token, ch2 rune, tok2, tok3 mytoken.Token) mytoken.Token {
 	if s.ch == '=' {
 		s.next()
 		return tok1
@@ -779,8 +776,8 @@ func (s *Scanner) switch4(tok0, tok1 token.Token, ch2 rune, tok2, tok3 token.Tok
 // set with Init. Token positions are relative to that file
 // and thus relative to the file set.
 //
-func (s *Scanner) Scan() (pos token.Pos, tok token.Token, lit string) {
-scanAgain:
+func (s *Scanner) Scan() (pos mytoken.Pos, tok mytoken.Token, lit string) {
+	//scanAgain:
 	s.skipWhitespace()
 
 	// current token start
@@ -793,14 +790,14 @@ scanAgain:
 		lit = s.scanIdentifier()
 		if len(lit) > 1 {
 			// keywords are longer than one letter - avoid lookup otherwise
-			tok = token.Lookup(lit)
+			tok = mytoken.Lookup(lit)
 			switch tok {
-			case token.IDENT, token.BREAK, token.CONTINUE, token.FALLTHROUGH, token.RETURN:
+			case mytoken.IDENT:
 				insertSemi = true
 			}
 		} else {
 			insertSemi = true
-			tok = token.IDENT
+			tok = mytoken.IDENT
 		}
 	case isDecimal(ch) || ch == '.' && isDecimal(rune(s.peek())):
 		insertSemi = true
@@ -811,124 +808,124 @@ scanAgain:
 		case -1:
 			if s.insertSemi {
 				s.insertSemi = false // EOF consumed
-				return pos, token.SEMICOLON, "\n"
+				return pos, mytoken.SEMICOLON, "\n"
 			}
-			tok = token.EOF
+			tok = mytoken.EOF
 		case '\n':
 			// we only reach here if s.insertSemi was
 			// set in the first place and exited early
 			// from s.skipWhitespace()
 			s.insertSemi = false // newline consumed
-			return pos, token.SEMICOLON, "\n"
+			return pos, mytoken.SEMICOLON, "\n"
 		case '"':
 			insertSemi = true
-			tok = token.STRING
+			tok = mytoken.STRING
 			lit = s.scanString()
 		case '\'':
 			insertSemi = true
-			tok = token.CHAR
+			tok = mytoken.CHAR
 			lit = s.scanRune()
 		case '`':
 			insertSemi = true
-			tok = token.STRING
+			tok = mytoken.STRING
 			lit = s.scanRawString()
-		case ':':
-			tok = s.switch2(token.COLON, token.DEFINE)
-		case '.':
-			// fractions starting with a '.' are handled by outer switch
-			tok = token.PERIOD
-			if s.ch == '.' && s.peek() == '.' {
-				s.next()
-				s.next() // consume last '.'
-				tok = token.ELLIPSIS
-			}
+		// case ':':
+		// 	tok = s.switch2(mytoken.COLON, mytoken.DEFINE)
+		// case '.':
+		// 	// fractions starting with a '.' are handled by outer switch
+		// 	tok = mytoken.PERIOD
+		// 	if s.ch == '.' && s.peek() == '.' {
+		// 		s.next()
+		// 		s.next() // consume last '.'
+		// 		tok = mytoken.ELLIPSIS
+		// 	}
 		case ',':
-			tok = token.COMMA
+			tok = mytoken.COMMA
 		case ';':
-			tok = token.SEMICOLON
+			tok = mytoken.SEMICOLON
 			lit = ";"
 		case '(':
-			tok = token.LPAREN
+			tok = mytoken.LPAREN
 		case ')':
 			insertSemi = true
-			tok = token.RPAREN
-		case '[':
-			tok = token.LBRACK
-		case ']':
-			insertSemi = true
-			tok = token.RBRACK
-		case '{':
-			tok = token.LBRACE
-		case '}':
-			insertSemi = true
-			tok = token.RBRACE
-		case '+':
-			tok = s.switch3(token.ADD, token.ADD_ASSIGN, '+', token.INC)
-			if tok == token.INC {
-				insertSemi = true
-			}
-		case '-':
-			tok = s.switch3(token.SUB, token.SUB_ASSIGN, '-', token.DEC)
-			if tok == token.DEC {
-				insertSemi = true
-			}
-		case '*':
-			tok = s.switch2(token.MUL, token.MUL_ASSIGN)
-		case '/':
-			if s.ch == '/' || s.ch == '*' {
-				// comment
-				if s.insertSemi && s.findLineEnd() {
-					// reset position to the beginning of the comment
-					s.ch = '/'
-					s.offset = s.file.Offset(pos)
-					s.rdOffset = s.offset + 1
-					s.insertSemi = false // newline consumed
-					return pos, token.SEMICOLON, "\n"
-				}
-				comment := s.scanComment()
-				if s.mode&ScanComments == 0 {
-					// skip comment
-					s.insertSemi = false // newline consumed
-					goto scanAgain
-				}
-				tok = token.COMMENT
-				lit = comment
-			} else {
-				tok = s.switch2(token.QUO, token.QUO_ASSIGN)
-			}
-		case '%':
-			tok = s.switch2(token.REM, token.REM_ASSIGN)
-		case '^':
-			tok = s.switch2(token.XOR, token.XOR_ASSIGN)
+			tok = mytoken.RPAREN
+		// case '[':
+		// 	tok = mytoken.LBRACK
+		// case ']':
+		// 	insertSemi = true
+		// 	tok = mytoken.RBRACK
+		// case '{':
+		// 	tok = mytoken.LBRACE
+		// case '}':
+		// 	insertSemi = true
+		// 	tok = mytoken.RBRACE
+		// case '+':
+		// 	tok = s.switch3(mytoken.ADD, mytoken.ADD_ASSIGN, '+', mytoken.INC)
+		// 	if tok == token.INC {
+		// 		insertSemi = true
+		// 	}
+		// case '-':
+		// 	tok = s.switch3(mytoken.SUB, mytoken.SUB_ASSIGN, '-', mytoken.DEC)
+		// 	if tok == token.DEC {
+		// 		insertSemi = true
+		// 	}
+		// case '*':
+		// 	tok = s.switch2(mytoken.MUL, mytoken.MUL_ASSIGN)
+		// case '/':
+		// 	if s.ch == '/' || s.ch == '*' {
+		// 		// comment
+		// 		if s.insertSemi && s.findLineEnd() {
+		// 			// reset position to the beginning of the comment
+		// 			s.ch = '/'
+		// 			s.offset = s.file.Offset(pos)
+		// 			s.rdOffset = s.offset + 1
+		// 			s.insertSemi = false // newline consumed
+		// 			return pos, mytoken.SEMICOLON, "\n"
+		// 		}
+		// 		comment := s.scanComment()
+		// 		if s.mode&ScanComments == 0 {
+		// 			// skip comment
+		// 			s.insertSemi = false // newline consumed
+		// 			goto scanAgain
+		// 		}
+		// 		tok = mytoken.COMMENT
+		// 		lit = comment
+		// 	} else {
+		// 		tok = s.switch2(mytoken.QUO, mytoken.QUO_ASSIGN)
+		// 	}
+		// case '%':
+		// 	tok = s.switch2(mytoken.REM, mytoken.REM_ASSIGN)
+		// case '^':
+		// 	tok = s.switch2(mytoken.XOR, mytoken.XOR_ASSIGN)
 		case '<':
-			if s.ch == '-' {
-				s.next()
-				tok = token.ARROW
-			} else {
-				tok = s.switch4(token.LSS, token.LEQ, '<', token.SHL, token.SHL_ASSIGN)
-			}
+			// if s.ch == '-' {
+			// 	s.next()
+			// 	tok = mytoken.ARROW
+			// } else {
+			tok = s.switch2(mytoken.LSS, mytoken.LEQ)
+			// }
 		case '>':
-			tok = s.switch4(token.GTR, token.GEQ, '>', token.SHR, token.SHR_ASSIGN)
+			tok = s.switch2(mytoken.GTR, mytoken.GEQ)
 		case '=':
-			tok = s.switch2(token.ASSIGN, token.EQL)
-		case '!':
-			tok = s.switch2(token.NOT, token.NEQ)
-		case '&':
-			if s.ch == '^' {
-				s.next()
-				tok = s.switch2(token.AND_NOT, token.AND_NOT_ASSIGN)
-			} else {
-				tok = s.switch3(token.AND, token.AND_ASSIGN, '&', token.LAND)
-			}
-		case '|':
-			tok = s.switch3(token.OR, token.OR_ASSIGN, '|', token.LOR)
+			tok = mytoken.EQL
+		// case '!':
+		// 	tok = s.switch2(mytoken.NOT, mytoken.NEQ)
+		// case '&':
+		// 	if s.ch == '^' {
+		// 		s.next()
+		// 		tok = s.switch2(mytoken.AND_NOT, mytoken.AND_NOT_ASSIGN)
+		// 	} else {
+		// 		tok = s.switch3(mytoken.AND, mytoken.AND_ASSIGN, '&', mytoken.LAND)
+		// 	}
+		// case '|':
+		// 	tok = s.switch3(mytoken.OR, mytoken.OR_ASSIGN, '|', mytoken.LOR)
 		default:
 			// next reports unexpected BOMs - don't repeat
 			if ch != bom {
 				s.errorf(s.file.Offset(pos), "illegal character %#U", ch)
 			}
 			insertSemi = s.insertSemi // preserve insertSemi info
-			tok = token.ILLEGAL
+			tok = mytoken.ILLEGAL
 			lit = string(ch)
 		}
 	}

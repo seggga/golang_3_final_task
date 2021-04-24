@@ -3,9 +3,10 @@ package querier
 import (
 	"errors"
 	"fmt"
-	"go/token"
 	"regexp"
 	"strings"
+
+	"github.com/seggga/golang_3_final_task/mytoken"
 )
 
 type Lexemma struct {
@@ -23,7 +24,7 @@ type LexMachine struct {
 }
 
 // AnalyseToken - распределяет токены по слайсам, соответствующим блокам SELECT FROM и WHERE
-func AnalyseToken(l *LexMachine, s string, tok token.Token) {
+func AnalyseToken(l *LexMachine, s string, tok mytoken.Token) {
 
 	switch s {
 	case "SELECT":
