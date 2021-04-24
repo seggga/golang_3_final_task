@@ -1,6 +1,9 @@
 package querier
 
 import (
+	"errors"
+	"fmt"
+	"go/token"
 	"regexp"
 	"strings"
 )
@@ -8,6 +11,44 @@ import (
 type Lexemma struct {
 	Typ string
 	Val string
+}
+
+type LexMachine struct {
+	state  int
+	Select []string  // набор выбранных столбцов в пользовательском запросе (блок SELECT)
+	From   []string  // набор выбранных файлов, из которых будут забираться данные (блок FROM)
+	Where  []Lexemma // набор условий в запросе - блок WHERE
+	Query  string
+	//whereStatement []string // a part of the query containing only WHERE-statement
+}
+
+// AnalyseToken - распределяет токены по слайсам, соответствующим блокам SELECT FROM и WHERE
+func AnalyseToken(l *LexMachine, s string, tok token.Token) {
+
+	switch s {
+	case "SELECT":
+		l.state = 1
+		return
+	case "FROM":
+		l.state = 2
+		return
+	case "WHERE":
+		l.state = 3
+		return
+	}
+
+	switch l.state {
+	case 1:
+		l.Select = append(l.Select, s)
+	case 2:
+		l.From = append(l.From, s)
+	case 3:
+		l.Where = append(l.Where, Lexemma{s, tok.String()})
+		/*		if isComparator(tok) {
+					l.Condition[len(l.Condition) - 2].Typ = "column"
+				}
+		*/
+	}
 }
 
 // функция проверяет, содержатся ли указанные в select столбцы в переданном файле
@@ -42,6 +83,39 @@ func TrimOutput(allColumns []string, b []byte) []string {
 	}
 
 	return outColumns
+}
+
+func CheckSelectedColumns(s []string, lm LexMachine) error {
+	// check SELECT statement
+	counter := len(lm.Select)
+	for _, colInQuery := range lm.Select {
+		for _, colInTable := range s {
+			if colInQuery == colInTable {
+				counter--
+				break
+			}
+		}
+	}
+	if counter > 0 {
+		return errors.New("Набор столбцов в запросе (секция SELECT) не соответствует именам столбцов в файле")
+	}
+
+	// check WHERE statement
+	counter = len(lm.Where)
+	for i := 0; i < len(lm.Where); i += 4 { //подход не учитывает скобки. Надо исправлять
+		for _, colInTable := range s {
+			if lm.Where[i].Val == colInTable {
+				counter--
+				break
+			}
+		}
+	}
+	if counter > 0 {
+		return errors.New("Набор столбцов в запросе (секция WHERE) не соответствует именам столбцов в файле")
+	}
+
+	return nil
+
 }
 
 // CheckQueryPattern - checks the query pattern
@@ -83,6 +157,7 @@ func Execute(sl []Lexemma) bool {
 		// финальное вычисление ??
 		if i+3 >= len(sl) {
 			res := calculator(sl[i : i+3])
+			fmt.Println(sl)
 			if res.Val == "true" {
 				return true
 			}
@@ -149,6 +224,55 @@ func calculate(i int, ops []Lexemma) Lexemma {
 	return Lexemma{"bool", "false"}
 }
 
+// FillTheMap constructs the map for mapping column-name => current value from the given row of csv-file
+func FillTheMap(fileCols, row []string, lm LexMachine) map[string]string {
+
+	// the output map will contain pairs 'fieldName' -> 'fieldValue' from the current row of CSV-file
+	mapSize := len(lm.Select) + len(lm.Where)/3
+	rowData := make(map[string]string, mapSize)
+
+	// fill the output map with SELECT-data
+	for _, col := range lm.Select {
+		for i := 0; i < len(fileCols); i += 1 {
+			if col == fileCols[i] {
+				rowData[col] = row[i]
+			}
+		}
+	}
+	// add WHERE-data to the output map
+	for i := 0; i < len(lm.Where); i += 4 { //подход не учитывает скобки. Надо исправлять
+		for j := 0; j < len(fileCols); j += 1 {
+			if lm.Where[i].Val == fileCols[j] {
+				rowData[lm.Where[i].Val] = row[j]
+			}
+		}
+	}
+
+	return rowData
+}
+
+func MakeSlice(rowData map[string]string, lm LexMachine) []Lexemma {
+
+	lexSlice := make([]Lexemma, len(lm.Where))
+
+	for _, lex := range lm.Where {
+		if lex.Typ == "IDENT" {
+			lex.Val = rowData[lex.Val]
+			lexSlice = append(lexSlice, lex)
+		}
+	}
+	return nil
+}
+
+func PrintTheRow(rowData map[string]string, lm LexMachine) error {
+
+	for _, fieldName := range lm.Select {
+		fmt.Printf("%s\t", rowData[fieldName])
+	}
+	fmt.Println()
+	return nil
+}
+
 /*
  slice += execute(slice[i], slice[i+1], slice[i+2])  // внутри функции идет проверка ситуации, есть ли четвертый элемент в группе.
  //если четвертого в группе нет, значит это финальное вычисление
@@ -160,7 +284,7 @@ func calculate(i int, ops []Lexemma) Lexemma {
 	return false
 }
 
-/*   age >= 30 AND region=="Europe" AND status == "sick"
+/*   age >= 30 AND region=="Europe" OR status == "sick"
 
 1) сформировать слайс операндов и действий с ними и выполнять по 3
 
