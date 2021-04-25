@@ -32,6 +32,7 @@ const (
 	//IMAG   // 123.45i
 	CHAR   // 'a'
 	STRING // "abc"
+
 	literal_end
 
 	operator_beg
@@ -42,8 +43,6 @@ const (
 	//QUO // /
 	//REM // %
 
-	AND // &
-	OR  // |
 	//XOR     // ^
 	//SHL     // <<
 	//SHR     // >>
@@ -62,16 +61,16 @@ const (
 	//SHR_ASSIGN     // >>=
 	//AND_NOT_ASSIGN // &^=
 
-	LAND // &&
-	LOR  // ||
+	// LAND // &&
+	// LOR  // ||
 	//ARROW // <-
 	//INC   // ++
 	//DEC   // --
 
-	EQL // ==
-	LSS // <
-	GTR // >
-	//ASSIGN // =
+	EQL    // ==
+	LSS    // <
+	GTR    // >
+	ASSIGN // =
 	//NOT    // !
 
 	//NEQ      // !=
@@ -98,6 +97,9 @@ const (
 	SELECT
 	FROM
 	WHERE
+
+	AND // &
+	OR  // |
 
 	// BREAK
 	// CASE
@@ -150,8 +152,8 @@ var tokens = [...]string{
 	// QUO: "/",
 	// REM: "%",
 
-	AND: "&",
-	OR:  "|",
+	//	AND: "&",
+	//	OR:  "|",
 	// XOR:     "^",
 	// SHL:     "<<",
 	// SHR:     ">>",
@@ -170,16 +172,16 @@ var tokens = [...]string{
 	// SHR_ASSIGN:     ">>=",
 	// AND_NOT_ASSIGN: "&^=",
 
-	LAND: "&&",
-	LOR:  "||",
+	//	LAND: "&&",
+	//	LOR:  "||",
 	// ARROW: "<-",
 	// INC:   "++",
 	// DEC:   "--",
 
-	EQL: "==",
-	LSS: "<",
-	GTR: ">",
-	// ASSIGN: "=",
+	EQL:    "==",
+	LSS:    "<",
+	GTR:    ">",
+	ASSIGN: "=",
 	// NOT:    "!",
 
 	// NEQ:      "!=",
@@ -227,6 +229,9 @@ var tokens = [...]string{
 	SELECT: "select",
 	FROM:   "from",
 	WHERE:  "where",
+
+	AND: "and",
+	OR:  "or",
 	// STRUCT: "struct",
 	// SWITCH: "switch",
 	// TYPE:   "type",
@@ -268,10 +273,10 @@ const (
 //
 func (op Token) Precedence() int {
 	switch op {
-	case LOR:
-		return 1
-	case LAND:
-		return 2
+	// case LOR:
+	// 	return 1
+	// case LAND:
+	// 	return 2
 	//case EQL, NEQ, LSS, LEQ, GTR, GEQ:
 	case EQL, LSS, LEQ, GTR, GEQ:
 		return 3

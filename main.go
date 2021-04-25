@@ -14,7 +14,7 @@ import (
 
 func main() {
 
-	src := []byte(` SELECT name,age FROM file where age>=30 and region=="Europe" and status == "sick" `)
+	src := []byte(` select name,age from "file1.csv" where age>=30 and region=="Europe" and status == "sick" `)
 	fmt.Printf("%s\n", src)
 
 	if !querier.CheckQueryPattern(src) {
@@ -88,6 +88,7 @@ func main() {
 		}
 
 		// compare columns sets from the query and the file
+		//columns := strings.Split(fileCols, ",")
 		err = querier.CheckSelectedColumns(fileCols, lm)
 		if err != nil {
 			log.Fatalf("Неверный запрос: %v", err)
@@ -118,21 +119,21 @@ func main() {
 
 	fmt.Println(querier.GetConditions(src))
 
-	aSlice := []querier.Lexemma{
-		{Typ: "operator", Val: "and"},
-		{Typ: "operand", Val: "31"},
-		{Typ: "operator", Val: ">="},
-		{Typ: "operand", Val: "30"},
-		{Typ: "operand", Val: "Europe"},
-		{Typ: "operator", Val: "=="},
-		{Typ: "operand", Val: "europe"},
-		{Typ: "operator", Val: "and"},
-		{Typ: "operand", Val: "sick"},
-		{Typ: "operator", Val: "=="},
-		{Typ: "operand", Val: "sick"},
-	}
+	// aSlice := []querier.Lexemma{
+	// 	{Typ: "operator", Val: "and"},
+	// 	{Typ: "operand", Val: "31"},
+	// 	{Typ: "operator", Val: ">="},
+	// 	{Typ: "operand", Val: "30"},
+	// 	{Typ: "operand", Val: "Europe"},
+	// 	{Typ: "operator", Val: "=="},
+	// 	{Typ: "operand", Val: "europe"},
+	// 	{Typ: "operator", Val: "and"},
+	// 	{Typ: "operand", Val: "sick"},
+	// 	{Typ: "operator", Val: "=="},
+	// 	{Typ: "operand", Val: "sick"},
+	// }
 
-	fmt.Println(querier.Execute(aSlice))
+	// fmt.Println(querier.Execute(aSlice))
 }
 
 /*

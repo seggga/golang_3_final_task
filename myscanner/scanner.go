@@ -907,7 +907,7 @@ func (s *Scanner) Scan() (pos mytoken.Pos, tok mytoken.Token, lit string) {
 		case '>':
 			tok = s.switch2(mytoken.GTR, mytoken.GEQ)
 		case '=':
-			tok = mytoken.EQL
+			tok = s.switch2(mytoken.ASSIGN, mytoken.EQL)
 		// case '!':
 		// 	tok = s.switch2(mytoken.NOT, mytoken.NEQ)
 		// case '&':

@@ -10,8 +10,8 @@ import (
 )
 
 type Lexemma struct {
-	Typ string
-	Val string
+	Lex string
+	Tok string
 }
 
 type LexMachine struct {
@@ -26,16 +26,26 @@ type LexMachine struct {
 // AnalyseToken - распределяет токены по слайсам, соответствующим блокам SELECT FROM и WHERE
 func AnalyseToken(l *LexMachine, s string, tok mytoken.Token) {
 
+	// исключаем запятую из лексемм
+	if s == "" && tok.String() == "," {
+		return
+	}
+
 	switch s {
-	case "SELECT":
+	case "select":
 		l.state = 1
 		return
-	case "FROM":
+	case "from":
 		l.state = 2
 		return
-	case "WHERE":
+	case "where":
 		l.state = 3
 		return
+	}
+
+	// обрезаем лишние кавычки
+	if tok.String() == "STRING" {
+		s = s[1 : len(s)-1]
 	}
 
 	switch l.state {
@@ -105,7 +115,7 @@ func CheckSelectedColumns(s []string, lm LexMachine) error {
 	counter = len(lm.Where)
 	for i := 0; i < len(lm.Where); i += 4 { //подход не учитывает скобки. Надо исправлять
 		for _, colInTable := range s {
-			if lm.Where[i].Val == colInTable {
+			if lm.Where[i].Tok == colInTable {
 				counter--
 				break
 			}
@@ -159,14 +169,14 @@ func Execute(sl []Lexemma) bool {
 		if i+3 >= len(sl) {
 			res := calculator(sl[i : i+3])
 			fmt.Println(sl)
-			if res.Val == "true" {
+			if res.Tok == "true" {
 				return true
 			}
 			return false
 		}
 		// нефинальное вычисление
 		sl = append(sl, calculator(sl[i:i+3]))
-		if sl[i+3].Typ == "operator" {
+		if sl[i+3].Lex == "operator" {
 			sl = append(sl, sl[i+3])
 		} else {
 			i -= 1
@@ -178,7 +188,7 @@ func Execute(sl []Lexemma) bool {
 func calculator(ops []Lexemma) Lexemma {
 
 	for i, op := range ops {
-		if op.Typ == "operator" {
+		if op.Lex == "operator" {
 			return calculate(i, ops)
 		}
 	}
@@ -202,21 +212,21 @@ func calculate(i int, ops []Lexemma) Lexemma {
 	}
 
 	var result bool
-	switch ops[i].Val {
+	switch ops[i].Tok {
 	case ">":
-		result = operand1.Val > operand2.Val
+		result = operand1.Tok > operand2.Tok
 	case ">=":
-		result = operand1.Val >= operand2.Val
+		result = operand1.Tok >= operand2.Tok
 	case "==":
-		result = operand1.Val == operand2.Val
+		result = operand1.Tok == operand2.Tok
 	case "<":
-		result = operand1.Val < operand2.Val
+		result = operand1.Tok < operand2.Tok
 	case "<=":
-		result = operand1.Val <= operand2.Val
+		result = operand1.Tok <= operand2.Tok
 	case "and":
-		result = (operand1.Val == "true") && (operand2.Val == "true")
+		result = (operand1.Tok == "true") && (operand2.Tok == "true")
 	case "or":
-		result = (operand1.Val == "true") || (operand2.Val == "true")
+		result = (operand1.Tok == "true") || (operand2.Tok == "true")
 	}
 
 	if result {
@@ -243,8 +253,8 @@ func FillTheMap(fileCols, row []string, lm LexMachine) map[string]string {
 	// add WHERE-data to the output map
 	for i := 0; i < len(lm.Where); i += 4 { //подход не учитывает скобки. Надо исправлять
 		for j := 0; j < len(fileCols); j += 1 {
-			if lm.Where[i].Val == fileCols[j] {
-				rowData[lm.Where[i].Val] = row[j]
+			if lm.Where[i].Tok == fileCols[j] {
+				rowData[lm.Where[i].Tok] = row[j]
 			}
 		}
 	}
@@ -257,8 +267,8 @@ func MakeSlice(rowData map[string]string, lm LexMachine) []Lexemma {
 	lexSlice := make([]Lexemma, len(lm.Where))
 
 	for _, lex := range lm.Where {
-		if lex.Typ == "IDENT" {
-			lex.Val = rowData[lex.Val]
+		if lex.Lex == "IDENT" {
+			lex.Tok = rowData[lex.Tok]
 			lexSlice = append(lexSlice, lex)
 		}
 	}
